@@ -1,4 +1,4 @@
-# demo-clock-stm32f0
+# demo-clock-stm32f030
 
 How it looks like, can be seen on https://youtu.be/x5GeTt9Zqug
 
