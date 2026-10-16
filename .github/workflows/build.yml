@@ -37,10 +37,14 @@ jobs:
       - name: Build firmware
         run: cmake --build build --parallel
 
+      - name: Set artifact date
+        id: artifact_date
+        run: echo "value=$(date -u +'%Y-%m-%d')" >> "$GITHUB_OUTPUT"
+
       - name: Upload firmware artifacts
         uses: actions/upload-artifact@v7
         with:
-          name: demo-clock-firmware-${{ github.sha }}
+          name: demo-clock-firmware-${{ steps.artifact_date.outputs.value }}
           path: |
             build/demo-clock.bin
             build/demo-clock.hex

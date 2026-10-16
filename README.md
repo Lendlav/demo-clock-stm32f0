@@ -127,7 +127,7 @@ The linker configuration targets the STM32F030F4 memory layout: **16 KiB Flash**
 
 ## Automated build (GitHub Actions)
 
-The `Firmware build` workflow runs on every push and pull request, and can also be started manually from the repository's **Actions** tab. On success, it publishes the ELF, HEX, BIN, and linker map as the `demo-clock-firmware-<commit>` artifact for 14 days.
+The `Firmware build` workflow runs on every push and pull request, and can also be started manually from the repository's **Actions** tab. On success, it publishes the ELF, HEX, BIN, and linker map as a `demo-clock-firmware-YYYY-MM-DD` artifact, named with the UTC build date and kept for 14 days.
 
 ## Flash with ST-Link
 
