@@ -37,18 +37,62 @@ jobs:
       - name: Build firmware
         run: cmake --build build --parallel
 
-      - name: Set artifact date
-        id: artifact_date
-        run: echo "value=$(date -u +'%Y-%m-%d')" >> "$GITHUB_OUTPUT"
-
       - name: Upload firmware artifacts
         uses: actions/upload-artifact@v7
         with:
-          name: demo-clock-firmware-${{ steps.artifact_date.outputs.value }}
+          name: demo-clock-firmware-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
             build/demo-clock.bin
             build/demo-clock.hex
             build/demo-clock.elf
             build/demo-clock.map
           if-no-files-found: error
-          retention-days: 14
+          retention-days: 1
+
+  release:
+    name: Publish latest firmware release
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-24.04
+
+    permissions:
+      contents: write
+      actions: read
+
+    steps:
+      - name: Download firmware artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: demo-clock-firmware-${{ github.run_id }}-${{ github.run_attempt }}
+          path: dist
+
+      - name: Publish new release
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
+          target_commitish: ${{ github.sha }}
+          make_latest: true
+          generate_release_notes: true
+          files: |
+            dist/demo-clock.bin
+            dist/demo-clock.hex
+            dist/demo-clock.elf
+            dist/demo-clock.map
+
+      - name: Delete older releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          CURRENT_TAG: ${{ github.ref_name }}
+        run: |
+          gh release list --limit 100 --json tagName \
+            --jq '.[].tagName' |
+          while IFS= read -r tag; do
+            [ -z "$tag" ] && continue
+            [ "$tag" = "$CURRENT_TAG" ] && continue
+
+            echo "Deleting old release: $tag"
+            gh release delete "$tag" --yes --cleanup-tag
+          done
+          
