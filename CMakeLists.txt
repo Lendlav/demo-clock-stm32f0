@@ -24,6 +24,8 @@ set(FIRMWARE_SOURCES
     Platform/STM32F0/i2c.c
     Platform/STM32F0/rtc.c
     Platform/STM32F0/rtc_adapter.c
+    Platform/STM32F0/temperature_sensor.c
+    Platform/STM32F0/power.c
     Platform/STM32F0/clock_display.c
     Platform/STM32F0/stm32f0xx_hal_msp.c
     Platform/STM32F0/stm32f0xx_it.c
@@ -76,6 +78,7 @@ target_compile_options(demo-clock.elf PRIVATE
     -Wall
     -Wextra
     $<$<COMPILE_LANGUAGE:C>:-Os>
+    $<$<COMPILE_LANGUAGE:C>:-flto>
     $<$<COMPILE_LANGUAGE:C>:-g3>
 )
 
@@ -83,11 +86,13 @@ set(LINKER_SCRIPT "${PLATFORM_DIR}/Linker/stm32f030f4.ld")
 target_link_options(demo-clock.elf PRIVATE
     -mcpu=cortex-m0
     -mthumb
+    -flto
     -nostartfiles
     --specs=nano.specs
     --specs=nosys.specs
     "-T${LINKER_SCRIPT}"
     -Wl,--gc-sections
+    -Wl,-u,vTaskSwitchContext
     -Wl,--print-memory-usage
     "-Wl,-Map=${CMAKE_CURRENT_BINARY_DIR}/demo-clock.map"
 )

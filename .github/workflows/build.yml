@@ -1,0 +1,50 @@
+name: Firmware build
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build STM32F030 firmware
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Install ARM GNU toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y \
+            binutils-arm-none-eabi \
+            cmake \
+            gcc-arm-none-eabi \
+            libnewlib-arm-none-eabi \
+            make
+
+      - name: Configure CMake
+        run: >-
+          cmake -S . -B build
+          -DCMAKE_TOOLCHAIN_FILE="$GITHUB_WORKSPACE/cmake/arm-none-eabi.cmake"
+          -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build firmware
+        run: cmake --build build --parallel
+
+      - name: Upload firmware artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: demo-clock-firmware-${{ github.sha }}
+          path: |
+            build/demo-clock.bin
+            build/demo-clock.hex
+            build/demo-clock.elf
+            build/demo-clock.map
+          if-no-files-found: error
+          retention-days: 14

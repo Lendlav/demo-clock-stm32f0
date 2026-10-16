@@ -5,8 +5,8 @@
 #define BATTERY_MIN_MV 3218U
 #define BATTERY_MAX_MV 4096U
 #define BATTERY_STEP_MS 20U
-#define BLINK_INTERVAL_MS 500U
-#define TICKER_INTERVAL_MS 100U
+#define TICKER_INTERVAL_MS 50U
+#define SEPARATOR_INTERVAL_MS 500U
 
 static const char ticker_message[] =
     " This is the run string where you can write everything you want to write<<<";
@@ -22,7 +22,7 @@ static void write_two_digits(char *destination, uint8_t value)
     destination[1] = (char)('0' + (value % 10U));
 }
 
-static void update_ticker(ClockApplication *application, ClockView *view)
+static void update_ticker(const ClockApplication *application, ClockView *view)
 {
     const size_t message_length = sizeof(ticker_message) - 1U;
     size_t index = application->ticker_offset;
@@ -31,13 +31,56 @@ static void update_ticker(ClockApplication *application, ClockView *view)
         view->ticker[column] = ticker_message[index];
         index = (index + 1U) % message_length;
     }
+
     view->ticker[CLOCK_TICKER_WIDTH] = '\0';
+    view->ticker_pixel_offset = application->ticker_pixel_offset;
 }
 
-static void update_clock_view(ClockApplication *application,
+void clock_application_init(ClockApplication *application)
+{
+    memset(application, 0, sizeof(*application));
+    application->battery_millivolts = BATTERY_MIN_MV;
+    application->separator_is_brace = true;
+}
+
+void clock_application_update(ClockApplication *application,
                               const ClockDateTime *date_time,
+                              uint32_t elapsed_ms,
+                              int16_t temperature_celsius,
+                              bool temperature_valid,
                               ClockView *view)
 {
+    const uint32_t message_length = (uint32_t)(sizeof(ticker_message) - 1U);
+    const uint64_t battery_elapsed =
+        (uint64_t)application->battery_elapsed_ms + elapsed_ms;
+    const uint32_t battery_steps = (uint32_t)(battery_elapsed / BATTERY_STEP_MS);
+    const uint32_t battery_range = BATTERY_MAX_MV - BATTERY_MIN_MV + 1U;
+    const uint32_t battery_offset =
+        application->battery_millivolts - BATTERY_MIN_MV;
+    application->battery_elapsed_ms = (uint32_t)(battery_elapsed % BATTERY_STEP_MS);
+    application->battery_millivolts = (uint16_t)(BATTERY_MIN_MV +
+        ((battery_offset + battery_steps) % battery_range));
+
+    const uint64_t ticker_elapsed =
+        (uint64_t)application->ticker_elapsed_ms + elapsed_ms;
+    const uint32_t scroll_steps = (uint32_t)(ticker_elapsed / TICKER_INTERVAL_MS);
+    application->ticker_elapsed_ms = (uint32_t)(ticker_elapsed % TICKER_INTERVAL_MS);
+
+    const uint32_t pixel_position = application->ticker_pixel_offset + scroll_steps;
+    application->ticker_pixel_offset = (uint8_t)(pixel_position % 6U);
+    application->ticker_offset =
+        (application->ticker_offset + (pixel_position / 6U)) % message_length;
+
+    const uint64_t separator_elapsed =
+        (uint64_t)application->separator_elapsed_ms + elapsed_ms;
+    const uint32_t blink_steps =
+        (uint32_t)(separator_elapsed / SEPARATOR_INTERVAL_MS);
+    application->separator_elapsed_ms =
+        (uint32_t)(separator_elapsed % SEPARATOR_INTERVAL_MS);
+    if ((blink_steps & 1U) != 0U) {
+        application->separator_is_brace = !application->separator_is_brace;
+    }
+
     write_two_digits(&view->time[0], date_time->hour);
     view->time[2] = application->separator_is_brace ? '}' : '~';
     write_two_digits(&view->time[3], date_time->minute);
@@ -59,52 +102,8 @@ static void update_clock_view(ClockApplication *application,
     memcpy(view->weekday, weekday, 3U);
     view->weekday[3] = '\0';
 
-    view->battery_millivolts = application->battery_millivolts;
     update_ticker(application, view);
-}
-
-void clock_application_init(ClockApplication *application, uint32_t now_ms)
-{
-    memset(application, 0, sizeof(*application));
-    application->last_update_ms = now_ms;
-    application->last_blink_ms = now_ms;
-    application->last_scroll_ms = now_ms;
-    application->battery_millivolts = BATTERY_MIN_MV;
-    application->separator_is_brace = true;
-}
-
-void clock_application_update(ClockApplication *application,
-                              const ClockDateTime *date_time,
-                              uint32_t now_ms,
-                              ClockView *view)
-{
-    const uint32_t elapsed_ms = now_ms - application->last_update_ms;
-    application->last_update_ms = now_ms;
-    uint32_t battery_steps = elapsed_ms / BATTERY_STEP_MS;
-    application->battery_elapsed_ms += elapsed_ms % BATTERY_STEP_MS;
-    if (application->battery_elapsed_ms >= BATTERY_STEP_MS) {
-        application->battery_elapsed_ms -= BATTERY_STEP_MS;
-        ++battery_steps;
-    }
-
-    const uint32_t battery_range = BATTERY_MAX_MV - BATTERY_MIN_MV + 1U;
-    const uint32_t battery_offset = application->battery_millivolts - BATTERY_MIN_MV;
-    application->battery_millivolts = (uint16_t)(BATTERY_MIN_MV +
-        (battery_offset + (battery_steps % battery_range)) % battery_range);
-
-    const uint32_t blink_steps =
-        (uint32_t)(now_ms - application->last_blink_ms) / BLINK_INTERVAL_MS;
-    if ((blink_steps % 2U) != 0U) {
-        application->separator_is_brace = !application->separator_is_brace;
-    }
-    application->last_blink_ms += blink_steps * BLINK_INTERVAL_MS;
-
-    const size_t message_length = sizeof(ticker_message) - 1U;
-    const uint32_t scroll_steps =
-        (uint32_t)(now_ms - application->last_scroll_ms) / TICKER_INTERVAL_MS;
-    application->last_scroll_ms += scroll_steps * TICKER_INTERVAL_MS;
-    application->ticker_offset = (application->ticker_offset +
-        (scroll_steps % message_length)) % message_length;
-
-    update_clock_view(application, date_time, view);
+    view->battery_millivolts = application->battery_millivolts;
+    view->temperature_celsius = temperature_celsius;
+    view->temperature_valid = temperature_valid;
 }

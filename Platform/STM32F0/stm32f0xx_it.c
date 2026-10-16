@@ -33,6 +33,7 @@
 /* Includes ------------------------------------------------------------------*/
 #include "stm32f0xx_hal.h"
 #include "stm32f0xx_it.h"
+#include "rtc.h"
 #include "FreeRTOS.h"
 #include "task.h"
 
@@ -89,6 +90,14 @@ void SysTick_Handler(void)
   {
     xPortSysTickHandler();
   }
+}
+
+/**
+* @brief This function handles the RTC alarm interrupt.
+*/
+void RTC_IRQHandler(void)
+{
+  HAL_RTC_AlarmIRQHandler(&hrtc);
 }
 
 /******************************************************************************/

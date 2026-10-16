@@ -65,7 +65,14 @@
 
 /* USER CODE END Private defines */
 
+enum {
+  STM32F0_BUTTON_MODE = 1U << 0,
+  STM32F0_BUTTON_UP = 1U << 1,
+  STM32F0_BUTTON_DOWN = 1U << 2
+};
+
 void MX_GPIO_Init(void);
+uint8_t stm32f0_buttons_poll(void);
 
 /* USER CODE BEGIN Prototypes */
 

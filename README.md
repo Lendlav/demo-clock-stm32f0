@@ -1,17 +1,24 @@
 # STM32F030 Clock & Ticker
 
-Firmware for an **STM32F030F4Px** microcontroller with a **128×32 SSD1306 OLED**. It displays the RTC date and time alongside a scrolling ticker and an animated battery gauge demo.
+Firmware for an **STM32F030F4Px** microcontroller with a **128×32 SSD1306 OLED**. In the normal clock view it displays the RTC date and time with a smoothly scrolling ticker and blinking time separators, and uses low-power idle between updates.
 
 [▶ Watch the original demo](https://youtu.be/x5GeTt9Zqug)
 
-The project uses CMake, the STM32 HAL, CMSIS, and FreeRTOS. Its application logic is separated from MCU-specific code so the clock formatting and animation logic do not depend on the hardware or RTOS.
+The project uses CMake, the STM32 HAL, CMSIS, and FreeRTOS. Its application logic is separated from MCU-specific code so clock formatting does not depend on the hardware or RTOS.
 
 ## What it does
 
 - Reads date and time from the STM32 RTC.
 - Renders the clock on a 128×32 SSD1306 display over I²C.
-- Shows a scrolling ticker and battery gauge animation.
-- Runs clock updates and display refresh in separate FreeRTOS tasks.
+- On the clock screen, scrolls the ticker one pixel every 50 ms and blinks the time separators every 500 ms.
+- Animates a demo battery gauge in the top-right corner; it is not a battery measurement.
+- Shows the STM32's internal die temperature only as a vertical thermometer gauge on the right edge, sampled every 5 seconds.
+- Measures the MCU supply voltage from VREFINT and shows it in the settings menu.
+- Adjusts OLED brightness from the buttons; the chosen level is not saved and returns to its default after reset or power-off.
+- Shows a rotating wireframe octahedron, a smaller cube, and a rotating cross bouncing around the display after the supply-voltage menu item.
+- Sends only changed OLED page ranges after the initial frame.
+- Uses FreeRTOS tickless idle and the RTC Alarm to enter STM32 STOP mode between updates.
+- Sets the RTC date and time with three buttons.
 
 > The RTC uses the internal low-speed oscillator (LSI). The firmware reads the RTC calendar but does not set its initial date or time.
 
@@ -20,15 +27,24 @@ The project uses CMake, the STM32 HAL, CMSIS, and FreeRTOS. Its application logi
 | Directory | Contents |
 | --- | --- |
 | `Domain/` | Clock and date data types, independent of hardware and RTOS. |
-| `Application/` | Clock view formatting and ticker/battery animation state. |
+| `Application/` | Hardware-independent clock view formatting. |
 | `Platform/STM32F0/` | Startup, HAL configuration, RTC/display adapters, and FreeRTOS tasks. |
 | `Drivers/` | STM32 HAL and CMSIS device support. |
 | `ThirdParty/FreeRTOS/` | FreeRTOS kernel and GCC Cortex-M0 port. |
 | `cmake/` | GNU Arm toolchain configuration for CMake. |
 
-The clock task sends a rendered view through a one-item FreeRTOS queue; the display task draws it. SysTick provides the HAL and RTOS tick.
+The clock task samples the RTC and sends frames through a one-item FreeRTOS queue; the display task draws the newest frame. The animation advances at 20 frames per second. During idle between frames, the firmware stops SysTick, enters STOP mode with the low-power regulator, and uses an RTC subsecond alarm to wake near the next update. It restores the PLL and accounts for elapsed RTC time before resuming FreeRTOS.
 
-The ticker and battery gauge are demo animations; the gauge does not measure a real battery.
+The thermometer and supply reading share the STM32F030's internal ADC measurement and factory VREFINT calibration. The thermometer visualizes MCU die temperature; it is not an ambient-temperature sensor. The voltage shown is the MCU supply estimate, not a battery measurement.
+
+## Power-saving behavior
+
+- On the clock screen, the ticker moves one pixel per frame and the time separators blink. The animated battery gauge is decorative and does not report supply voltage.
+- OLED brightness can be adjusted in 16 steps; unchanged display pages are not retransmitted.
+- The STM32F030F4/x6 RTC wake-up timer is unavailable, so tickless STOP uses Alarm A's subsecond comparison instead.
+- The OLED stays on to keep the current clock or animation screen visible. Its default contrast is intentionally dim to limit display current.
+
+The firmware reduces MCU activity and OLED brightness, but it does not measure total board current. The OLED module, its regulator, indicator LEDs, and a connected ST-Link can affect a supply-current measurement.
 
 ## Hardware
 
@@ -53,12 +69,27 @@ The firmware is configured for an SSD1306 128×32 display. Make sure the module'
 
 Power the target board and connect a common ground. VTref is a voltage reference input on many ST-Link adapters; check your adapter before using any pin marked `3.3 V` as a power output.
 
+### Clock setting buttons
+
+Connect normally-open buttons between the listed GPIO pins and GND. The firmware enables internal pull-ups, so no external resistors are needed.
+
+| Button | STM32F030 |
+| --- | --- |
+| MODE | PA0 |
+| + | PA1 |
+| − | PA2 |
+
+Press MODE to cycle through hour, minute, day, month, year, brightness, supply voltage, rotating objects, then return to the normal display. Use + and − to change the selected value; holding either button repeats the adjustment. RTC changes are written immediately. Brightness is adjustable in 16 levels; the supply voltage and animations are read-only. The octahedron, smaller cube, and cross rotate and bounce independently off the display edges, replacing the clock view until MODE is pressed again.
+
 ## Prepare the build and flash tools
 
-On Debian or Ubuntu, install CMake, the GNU Arm Embedded toolchain, Make, and ST-Link utilities:
+On Debian or Ubuntu, install CMake, the GNU Arm Embedded toolchain, Make, and ST-Link utilities. CMake configures the build; on a typical Linux setup, `cmake --build` invokes the generated Makefiles.
 
 ```sh
-sudo apt install cmake build-essential gcc-arm-none-eabi binutils-arm-none-eabi stlink-tools
+sudo apt install \
+  cmake build-essential \
+  gcc-arm-none-eabi binutils-arm-none-eabi libnewlib-arm-none-eabi \
+  stlink-tools
 ```
 
 Check that the commands are available:
@@ -94,6 +125,10 @@ The generated files are placed in `build/`:
 
 The linker configuration targets the STM32F030F4 memory layout: **16 KiB Flash** and **4 KiB RAM**.
 
+## Automated build (GitHub Actions)
+
+The `Firmware build` workflow runs on every push and pull request, and can also be started manually from the repository's **Actions** tab. On success, it publishes the ELF, HEX, BIN, and linker map as the `demo-clock-firmware-<commit>` artifact for 14 days.
+
 ## Flash with ST-Link
 
 1. Connect the ST-Link to the target's SWDIO, SWCLK, GND, and target-voltage reference pins. Power the board.
@@ -120,8 +155,8 @@ st-flash --connect-under-reset --reset write build/demo-clock.bin 0x08000000
 ### Troubleshooting
 
 - **No programmer or target found:** check the USB cable, target power, common GND, SWDIO/SWCLK wiring, and ST-Link permissions. Try `--connect-under-reset` if normal SWD connection fails.
-- **OLED stays blank:** verify 3.3 V power, ground, SDA on PA10, SCL on PA9, and that the module is an SSD1306 128×32 I²C display.
-- **Date or time is unexpected:** the firmware does not initialize the RTC calendar. Set it with a separate RTC setup/debug procedure.
+- **OLED stays blank or is too dim:** verify 3.3 V power, ground, SDA on PA10, SCL on PA9, and that the module is an SSD1306 128×32 I²C display. Use MODE to select brightness and press + to increase it.
+- **Date or time is unexpected:** the firmware does not initialize the RTC calendar at boot. Use MODE, +, and − to set the date and time.
 
 ## License notices
 

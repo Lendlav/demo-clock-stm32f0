@@ -27,18 +27,24 @@
 #include "clock_display.h"
 #include "gpio.h"
 #include "i2c.h"
+#include "power.h"
 #include "rtc.h"
 #include "rtos_tasks.h"
 #include "stm32f0xx_hal.h"
+#include "temperature_sensor.h"
 
 int main(void)
 {
     HAL_Init();
+    /* Configure the system clock before initializing clock-dependent peripherals. */
     SystemClock_Config();
 
+    /* Initialize hardware before starting tasks that use the RTC and OLED. */
     MX_GPIO_Init();
     MX_I2C1_Init();
     MX_RTC_Init();
+    stm32f0_power_init();
+    (void)stm32f0_internal_sensors_init();
 
     HAL_Delay(200U);
     clock_display_init();
@@ -51,6 +57,7 @@ void SystemClock_Config(void)
     RCC_ClkInitTypeDef clock = {0};
     RCC_PeriphCLKInitTypeDef peripheral_clock = {0};
 
+    /* Use the PLL for the core and LSI as the independent RTC clock source. */
     oscillator.OscillatorType = RCC_OSCILLATORTYPE_HSI |
                                 RCC_OSCILLATORTYPE_LSI;
     oscillator.HSIState = RCC_HSI_ON;
@@ -82,6 +89,7 @@ void SystemClock_Config(void)
         Error_Handler();
     }
 
+    /* Keep HAL_GetTick in milliseconds for the application timing calculations. */
     HAL_SYSTICK_Config(HAL_RCC_GetHCLKFreq() / 1000U);
     HAL_SYSTICK_CLKSourceConfig(SYSTICK_CLKSOURCE_HCLK);
     HAL_NVIC_SetPriority(SysTick_IRQn, 3U, 0U);
