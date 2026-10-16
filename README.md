@@ -36,3 +36,7 @@ The build writes `demo-clock.elf`, `demo-clock.hex`, `demo-clock.bin`, and `demo
 The RTC calendar is read at startup; firmware does not set an initial date or time.
 
 The project uses the FreeRTOS V9.0.0 kernel retained from the original project, with the GNU Arm Cortex-M0 port. The Cortex-M0 port source identifies FreeRTOS Kernel V10.2.1; the port API remains compatible with this kernel configuration.
+
+## License notices
+
+The FreeRTOS V9.0.0 kernel is distributed under GPLv2 with the FreeRTOS exception; its full license text is in `ThirdParty/FreeRTOS/LICENSE.txt`. The GCC Cortex-M0 port carries its separate MIT license notice in the source files. The bundled CMSIS and STM32 HAL/device-support files retain their original license notices in their source headers. Include applicable third-party notices when redistributing firmware binaries. No project-wide license is declared for the project's own code.
