@@ -1,0 +1,11 @@
+/build/
+/cmake-build-*/
+*.elf
+*.hex
+*.bin
+*.map
+*.o
+*.d
+*.crf
+*.axf
+*.uvguix.*
