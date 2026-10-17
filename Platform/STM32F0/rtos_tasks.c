@@ -15,18 +15,10 @@
 
 #define CLOCK_TASK_PERIOD_MS 50U
 #define SENSOR_SAMPLE_INTERVAL_MS 5000U
-#define OCTAHEDRON_MIN_X_Q8 (10 * 256)
-#define OCTAHEDRON_MAX_X_Q8 (117 * 256)
-#define OCTAHEDRON_MIN_Y_Q8 (10 * 256)
-#define OCTAHEDRON_MAX_Y_Q8 (21 * 256)
 #define CUBE_MIN_X_Q8 (7 * 256)
 #define CUBE_MAX_X_Q8 (120 * 256)
 #define CUBE_MIN_Y_Q8 (7 * 256)
 #define CUBE_MAX_Y_Q8 (24 * 256)
-#define CROSS_MIN_X_Q8 (4 * 256)
-#define CROSS_MAX_X_Q8 (123 * 256)
-#define CROSS_MIN_Y_Q8 (4 * 256)
-#define CROSS_MAX_Y_Q8 (27 * 256)
 
 typedef enum {
     CLOCK_MENU_NONE = 0,
@@ -37,59 +29,19 @@ typedef enum {
     CLOCK_MENU_YEAR,
     CLOCK_MENU_BRIGHTNESS,
     CLOCK_MENU_SUPPLY,
-    CLOCK_MENU_OCTAHEDRON
+    CLOCK_MENU_ANIMATION
 } ClockMenuSetting;
 
 static QueueHandle_t view_queue;
 static ClockApplication application;
 static ClockMenuSetting active_setting;
 static uint8_t brightness_level;
-static uint8_t octahedron_angle;
-static uint32_t octahedron_elapsed_ms;
-static int32_t octahedron_x_q8;
-static int32_t octahedron_y_q8;
-static int16_t octahedron_velocity_x_q8;
-static int16_t octahedron_velocity_y_q8;
+static uint32_t animation_elapsed_ms;
 static uint8_t cube_angle;
 static int32_t cube_x_q8;
 static int32_t cube_y_q8;
 static int16_t cube_velocity_x_q8;
 static int16_t cube_velocity_y_q8;
-static uint8_t cross_angle;
-static int32_t cross_x_q8;
-static int32_t cross_y_q8;
-static int16_t cross_velocity_x_q8;
-static int16_t cross_velocity_y_q8;
-
-static void advance_octahedron_position(void)
-{
-    octahedron_x_q8 += octahedron_velocity_x_q8;
-    octahedron_y_q8 += octahedron_velocity_y_q8;
-
-    if (octahedron_x_q8 <= OCTAHEDRON_MIN_X_Q8) {
-        octahedron_x_q8 = OCTAHEDRON_MIN_X_Q8;
-        if (octahedron_velocity_x_q8 < 0) {
-            octahedron_velocity_x_q8 = (int16_t)-octahedron_velocity_x_q8;
-        }
-    } else if (octahedron_x_q8 >= OCTAHEDRON_MAX_X_Q8) {
-        octahedron_x_q8 = OCTAHEDRON_MAX_X_Q8;
-        if (octahedron_velocity_x_q8 > 0) {
-            octahedron_velocity_x_q8 = (int16_t)-octahedron_velocity_x_q8;
-        }
-    }
-
-    if (octahedron_y_q8 <= OCTAHEDRON_MIN_Y_Q8) {
-        octahedron_y_q8 = OCTAHEDRON_MIN_Y_Q8;
-        if (octahedron_velocity_y_q8 < 0) {
-            octahedron_velocity_y_q8 = (int16_t)-octahedron_velocity_y_q8;
-        }
-    } else if (octahedron_y_q8 >= OCTAHEDRON_MAX_Y_Q8) {
-        octahedron_y_q8 = OCTAHEDRON_MAX_Y_Q8;
-        if (octahedron_velocity_y_q8 > 0) {
-            octahedron_velocity_y_q8 = (int16_t)-octahedron_velocity_y_q8;
-        }
-    }
-}
 
 static void advance_cube_position(void)
 {
@@ -121,39 +73,9 @@ static void advance_cube_position(void)
     }
 }
 
-static void advance_cross_position(void)
-{
-    cross_x_q8 += cross_velocity_x_q8;
-    cross_y_q8 += cross_velocity_y_q8;
-
-    if (cross_x_q8 <= CROSS_MIN_X_Q8) {
-        cross_x_q8 = CROSS_MIN_X_Q8;
-        if (cross_velocity_x_q8 < 0) {
-            cross_velocity_x_q8 = (int16_t)-cross_velocity_x_q8;
-        }
-    } else if (cross_x_q8 >= CROSS_MAX_X_Q8) {
-        cross_x_q8 = CROSS_MAX_X_Q8;
-        if (cross_velocity_x_q8 > 0) {
-            cross_velocity_x_q8 = (int16_t)-cross_velocity_x_q8;
-        }
-    }
-
-    if (cross_y_q8 <= CROSS_MIN_Y_Q8) {
-        cross_y_q8 = CROSS_MIN_Y_Q8;
-        if (cross_velocity_y_q8 < 0) {
-            cross_velocity_y_q8 = (int16_t)-cross_velocity_y_q8;
-        }
-    } else if (cross_y_q8 >= CROSS_MAX_Y_Q8) {
-        cross_y_q8 = CROSS_MAX_Y_Q8;
-        if (cross_velocity_y_q8 > 0) {
-            cross_velocity_y_q8 = (int16_t)-cross_velocity_y_q8;
-        }
-    }
-}
-
 static void advance_setting(void)
 {
-    if (active_setting == CLOCK_MENU_OCTAHEDRON) {
+    if (active_setting == CLOCK_MENU_ANIMATION) {
         active_setting = CLOCK_MENU_NONE;
     } else {
         active_setting = (ClockMenuSetting)(active_setting + 1);
@@ -245,16 +167,12 @@ static void clock_update_task(void *argument)
             advance_setting();
         }
 
-        if (active_setting == CLOCK_MENU_OCTAHEDRON) {
-            octahedron_elapsed_ms += elapsed_ms;
-            while (octahedron_elapsed_ms >= CLOCK_TASK_PERIOD_MS) {
-                octahedron_elapsed_ms -= CLOCK_TASK_PERIOD_MS;
-                octahedron_angle = (uint8_t)((octahedron_angle + 1U) & 63U);
+        if (active_setting == CLOCK_MENU_ANIMATION) {
+            animation_elapsed_ms += elapsed_ms;
+            while (animation_elapsed_ms >= CLOCK_TASK_PERIOD_MS) {
+                animation_elapsed_ms -= CLOCK_TASK_PERIOD_MS;
                 cube_angle = (uint8_t)((cube_angle + 1U) & 63U);
-                cross_angle = (uint8_t)((cross_angle + 1U) & 63U);
-                advance_octahedron_position();
                 advance_cube_position();
-                advance_cross_position();
             }
         }
 
@@ -270,7 +188,8 @@ static void clock_update_task(void *argument)
                 (active_setting >= CLOCK_MENU_HOUR) &&
                 (active_setting <= CLOCK_MENU_YEAR)) {
                 (void)stm32f0_rtc_adjust(&date_time,
-                    (Stm32f0RtcSetting)active_setting, direction);
+                                         (Stm32f0RtcSetting)active_setting,
+                                         direction);
             } else if ((direction > 0) &&
                        (active_setting == CLOCK_MENU_BRIGHTNESS) &&
                        (brightness_level < CLOCK_DISPLAY_BRIGHTNESS_MAX_LEVEL)) {
@@ -284,22 +203,16 @@ static void clock_update_task(void *argument)
             clock_application_update(&application,
                                      &date_time,
                                      elapsed_ms,
+                                     active_setting == CLOCK_MENU_ANIMATION,
                                      temperature_celsius,
                                      sensors_valid,
                                      &view);
             view.supply_millivolts = supply_millivolts;
             view.supply_valid = sensors_valid;
             view.brightness_level = brightness_level;
-            view.octahedron_angle = octahedron_angle;
-            view.octahedron_x = (uint8_t)((octahedron_x_q8 + 128) / 256);
-            view.octahedron_y = (uint8_t)((octahedron_y_q8 + 128) / 256);
-            view.octahedron_mode = (active_setting == CLOCK_MENU_OCTAHEDRON);
             view.cube_angle = cube_angle;
             view.cube_x = (uint8_t)((cube_x_q8 + 128) / 256);
             view.cube_y = (uint8_t)((cube_y_q8 + 128) / 256);
-            view.cross_angle = cross_angle;
-            view.cross_x = (uint8_t)((cross_x_q8 + 128) / 256);
-            view.cross_y = (uint8_t)((cross_y_q8 + 128) / 256);
             show_active_setting(&view);
             /* Keep only the newest animation frame if the display is still busy. */
             (void)xQueueOverwrite(view_queue, &view);
@@ -330,22 +243,12 @@ void stm32f0_rtos_start(void)
     clock_application_init(&application);
     active_setting = CLOCK_MENU_NONE;
     brightness_level = CLOCK_DISPLAY_BRIGHTNESS_DEFAULT_LEVEL;
-    octahedron_angle = 0U;
-    octahedron_elapsed_ms = 0U;
-    octahedron_x_q8 = 64 * 256;
-    octahedron_y_q8 = 16 * 256;
-    octahedron_velocity_x_q8 = 256;
-    octahedron_velocity_y_q8 = 90;
+    animation_elapsed_ms = 0U;
     cube_angle = 0U;
     cube_x_q8 = 28 * 256;
     cube_y_q8 = 10 * 256;
     cube_velocity_x_q8 = -192;
     cube_velocity_y_q8 = 128;
-    cross_angle = 16U;
-    cross_x_q8 = 100 * 256;
-    cross_y_q8 = 25 * 256;
-    cross_velocity_x_q8 = -128;
-    cross_velocity_y_q8 = -160;
 
     /* RTC sampling has higher priority; display rendering can block on I2C. */
     configASSERT(xTaskCreate(clock_update_task,

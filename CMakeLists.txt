@@ -30,6 +30,7 @@ set(FIRMWARE_SOURCES
     Platform/STM32F0/stm32f0xx_hal_msp.c
     Platform/STM32F0/stm32f0xx_it.c
     Platform/STM32F0/system_stm32f0xx.c
+    Platform/STM32F0/Display/prince_walk_sprite.c
     Platform/STM32F0/Display/ssd1306.c
     Platform/STM32F0/Startup/startup_stm32f030x6.S
     Drivers/STM32F0xx_HAL_Driver/Src/stm32f0xx_hal.c

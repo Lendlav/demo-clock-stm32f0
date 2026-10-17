@@ -28,6 +28,13 @@ void LCD_DrawOctahedron(uint8_t angle, uint8_t center_x, uint8_t center_y);
 void LCD_DrawCube(uint8_t angle, uint8_t center_x, uint8_t center_y);
 /* Draw a small rotating cross at the given center and angle (0..63). */
 void LCD_DrawCross(uint8_t angle, uint8_t center_x, uint8_t center_y);
+/* Draw a row-major monochrome bitmap into the framebuffer; zero bits are transparent. */
+void LCD_DrawBitmap(const uint8_t *bitmap,
+                    uint8_t width,
+                    uint8_t height,
+                    uint8_t row_stride,
+                    int16_t x,
+                    int16_t y);
 
 #endif
 

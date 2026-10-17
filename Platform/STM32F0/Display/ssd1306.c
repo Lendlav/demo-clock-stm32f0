@@ -1,5 +1,6 @@
 //SSD1306 library 
 #include "ssd1306.h"
+#include <stddef.h>
 #include <string.h>
 
 #include "stm32f0xx_hal.h"
@@ -438,6 +439,45 @@ static void lcd_set_pixel(uint8_t x, uint8_t y)
    lcd_buff[index] |= (uint8_t)(1U << (y % 8U));
 }
 
+/* Draw a row-major monochrome bitmap; zero bits leave the framebuffer unchanged. */
+void LCD_DrawBitmap(const uint8_t *bitmap,
+                    uint8_t width,
+                    uint8_t height,
+                    uint8_t row_stride,
+                    int16_t x,
+                    int16_t y)
+{
+   const uint16_t minimum_stride = (uint16_t)(((uint16_t)width + 7U) / 8U);
+
+   if ((bitmap == NULL) || (width == 0U) || (height == 0U) ||
+       (row_stride < minimum_stride))
+   {
+      return;
+   }
+
+   for (uint16_t source_y = 0U; source_y < height; ++source_y)
+   {
+      for (uint16_t source_x = 0U; source_x < width; ++source_x)
+      {
+         const uint16_t bitmap_index =
+             (uint16_t)(source_y * row_stride + source_x / 8U);
+         const uint8_t bitmap_mask = (uint8_t)(0x80U >> (source_x % 8U));
+
+         if ((bitmap[bitmap_index] & bitmap_mask) != 0U)
+         {
+            const int32_t pixel_x = (int32_t)x + source_x;
+            const int32_t pixel_y = (int32_t)y + source_y;
+
+            if ((pixel_x >= 0) && (pixel_x < 128) &&
+                (pixel_y >= 0) && (pixel_y < 32))
+            {
+               lcd_set_pixel((uint8_t)pixel_x, (uint8_t)pixel_y);
+            }
+         }
+      }
+   }
+}
+
 static void lcd_draw_line(int16_t x0, int16_t y0, int16_t x1, int16_t y1)
 {
    const int16_t dx = (x1 >= x0) ? (x1 - x0) : (x0 - x1);
@@ -637,9 +677,5 @@ void LCD_Thermometer(int16_t celsius, bool valid, uint8_t x, uint8_t y)
    }
 }
 ////-----------------------------------------------------------------------
-
-
-
-
 
 

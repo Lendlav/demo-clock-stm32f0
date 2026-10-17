@@ -2,7 +2,7 @@
 
 Firmware for an **STM32F030F4Px** microcontroller with a **128×32 SSD1306 OLED**. In the normal clock view it displays the RTC date and time with a smoothly scrolling ticker and blinking time separators, and uses low-power idle between updates.
 
-[▶ Watch the original demo](https://youtu.be/x5GeTt9Zqug)
+[▶ Watch the current demo](https://raw.githubusercontent.com/Lendlav/demo-clock-stm32f0/master/Demo.mp4) · [Original demo on YouTube](https://youtu.be/x5GeTt9Zqug)
 
 The project uses CMake, the STM32 HAL, CMSIS, and FreeRTOS. Its application logic is separated from MCU-specific code so clock formatting does not depend on the hardware or RTOS.
 
@@ -15,7 +15,7 @@ The project uses CMake, the STM32 HAL, CMSIS, and FreeRTOS. Its application logi
 - Shows the STM32's internal die temperature only as a vertical thermometer gauge on the right edge, sampled every 5 seconds.
 - Measures the MCU supply voltage from VREFINT and shows it in the settings menu.
 - Adjusts OLED brightness from the buttons; the chosen level is not saved and returns to its default after reset or power-off.
-- Shows a rotating wireframe octahedron, a smaller cube, and a rotating cross bouncing around the display after the supply-voltage menu item.
+- Shows a walking character and a rotating, bouncing wireframe cube after the supply-voltage menu item.
 - Sends only changed OLED page ranges after the initial frame.
 - Uses FreeRTOS tickless idle and the RTC Alarm to enter STM32 STOP mode between updates.
 - Sets the RTC date and time with three buttons.
@@ -27,7 +27,7 @@ The project uses CMake, the STM32 HAL, CMSIS, and FreeRTOS. Its application logi
 | Directory | Contents |
 | --- | --- |
 | `Domain/` | Clock and date data types, independent of hardware and RTOS. |
-| `Application/` | Hardware-independent clock view formatting. |
+| `Application/` | Hardware-independent clock formatting, ticker timing, and animation state. |
 | `Platform/STM32F0/` | Startup, HAL configuration, RTC/display adapters, and FreeRTOS tasks. |
 | `Drivers/` | STM32 HAL and CMSIS device support. |
 | `ThirdParty/FreeRTOS/` | FreeRTOS kernel and GCC Cortex-M0 port. |
@@ -79,7 +79,7 @@ Connect normally-open buttons between the listed GPIO pins and GND. The firmware
 | + | PA1 |
 | − | PA2 |
 
-Press MODE to cycle through hour, minute, day, month, year, brightness, supply voltage, rotating objects, then return to the normal display. Use + and − to change the selected value; holding either button repeats the adjustment. RTC changes are written immediately. Brightness is adjustable in 16 levels; the supply voltage and animations are read-only. The octahedron, smaller cube, and cross rotate and bounce independently off the display edges, replacing the clock view until MODE is pressed again.
+Press MODE to cycle through hour, minute, day, month, year, brightness, supply voltage, animation, then return to the normal display. Use + and − to change the selected value; holding either button repeats the adjustment. RTC changes are written immediately. Brightness is adjustable in 16 levels; the supply voltage and animation are read-only. A walking character and a rotating cube move across the display, replacing the clock view until MODE is pressed again.
 
 ## Prepare the build and flash tools
 
@@ -124,10 +124,6 @@ The generated files are placed in `build/`:
 | `demo-clock.map` | Linker memory and symbol map. |
 
 The linker configuration targets the STM32F030F4 memory layout: **16 KiB Flash** and **4 KiB RAM**.
-
-## Automated build (GitHub Actions)
-
-The `Firmware build` workflow runs on every push and pull request, and can also be started manually from the repository's **Actions** tab. On success, it publishes the ELF, HEX, BIN, and linker map as a `demo-clock-firmware-YYYY-MM-DD` artifact, named with the UTC build date and kept for 14 days.
 
 ## Flash with ST-Link
 

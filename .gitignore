@@ -1,5 +1,9 @@
 /build/
 /cmake-build-*/
+/CMakeCache.txt
+/CMakeFiles/
+/Makefile
+/cmake_install.cmake
 *.elf
 *.hex
 *.bin

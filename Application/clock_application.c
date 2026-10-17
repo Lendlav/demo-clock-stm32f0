@@ -7,6 +7,12 @@
 #define BATTERY_STEP_MS 20U
 #define TICKER_INTERVAL_MS 50U
 #define SEPARATOR_INTERVAL_MS 500U
+#define WALKING_FRAME_INTERVAL_MS 150U
+#define WALKING_STEP_PIXELS 4
+#define WALKING_SPRITE_WIDTH 22
+#define DISPLAY_WIDTH_PIXELS 128
+
+static const uint8_t walking_sprite_sequence[] = {0U, 1U, 2U, 1U};
 
 static const char ticker_message[] =
     " This is the run string where you can write everything you want to write<<<";
@@ -36,6 +42,56 @@ static void update_ticker(const ClockApplication *application, ClockView *view)
     view->ticker_pixel_offset = application->ticker_pixel_offset;
 }
 
+static void update_walking_animation(ClockApplication *application,
+                                     uint32_t elapsed_ms,
+                                     bool animation_mode,
+                                     ClockView *view)
+{
+    if (animation_mode) {
+        const uint64_t total_elapsed =
+            (uint64_t)application->walking_frame_elapsed_ms + elapsed_ms;
+        const uint32_t frame_steps =
+            (uint32_t)(total_elapsed / WALKING_FRAME_INTERVAL_MS);
+        const uint8_t sequence_length =
+            (uint8_t)(sizeof(walking_sprite_sequence) /
+                      sizeof(walking_sprite_sequence[0]));
+
+        application->walking_frame_elapsed_ms =
+            (uint32_t)(total_elapsed % WALKING_FRAME_INTERVAL_MS);
+
+        application->walking_phase = (uint8_t)(
+            (application->walking_phase + (frame_steps % sequence_length)) %
+            sequence_length);
+
+        if (frame_steps != 0U) {
+            const uint32_t steps_to_wrap = (uint32_t)(
+                (DISPLAY_WIDTH_PIXELS - application->walking_sprite_x +
+                 WALKING_STEP_PIXELS - 1) /
+                WALKING_STEP_PIXELS);
+
+            if (frame_steps >= steps_to_wrap) {
+                const uint32_t cycle_steps = (uint32_t)(
+                    (DISPLAY_WIDTH_PIXELS + WALKING_SPRITE_WIDTH +
+                     WALKING_STEP_PIXELS - 1) /
+                    WALKING_STEP_PIXELS);
+                const uint32_t steps_after_wrap = frame_steps - steps_to_wrap;
+                application->walking_sprite_x = (int16_t)(
+                    -WALKING_SPRITE_WIDTH +
+                    (int32_t)((steps_after_wrap % cycle_steps) *
+                              WALKING_STEP_PIXELS));
+            } else {
+                application->walking_sprite_x = (int16_t)(
+                    application->walking_sprite_x +
+                    (int32_t)(frame_steps * WALKING_STEP_PIXELS));
+            }
+        }
+    }
+
+    view->animation_mode = animation_mode;
+    view->walking_sprite_frame = walking_sprite_sequence[application->walking_phase];
+    view->walking_sprite_x = application->walking_sprite_x;
+}
+
 void clock_application_init(ClockApplication *application)
 {
     memset(application, 0, sizeof(*application));
@@ -46,6 +102,7 @@ void clock_application_init(ClockApplication *application)
 void clock_application_update(ClockApplication *application,
                               const ClockDateTime *date_time,
                               uint32_t elapsed_ms,
+                              bool animation_mode,
                               int16_t temperature_celsius,
                               bool temperature_valid,
                               ClockView *view)
@@ -103,6 +160,7 @@ void clock_application_update(ClockApplication *application,
     view->weekday[3] = '\0';
 
     update_ticker(application, view);
+    update_walking_animation(application, elapsed_ms, animation_mode, view);
     view->battery_millivolts = application->battery_millivolts;
     view->temperature_celsius = temperature_celsius;
     view->temperature_valid = temperature_valid;

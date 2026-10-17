@@ -1,5 +1,6 @@
 #include "clock_display.h"
 
+#include "prince_walk_sprite.h"
 #include "ssd1306.h"
 
 void clock_display_init(void)
@@ -18,12 +19,14 @@ void clock_display_render(const ClockView *view)
 
     /* Compose one complete frame in the SSD1306 page buffer before transmitting. */
     LCD_Clear();
-    if (view->octahedron_mode) {
-        LCD_DrawOctahedron(view->octahedron_angle,
-                           view->octahedron_x,
-                           view->octahedron_y);
+    if (view->animation_mode) {
         LCD_DrawCube(view->cube_angle, view->cube_x, view->cube_y);
-        LCD_DrawCross(view->cross_angle, view->cross_x, view->cross_y);
+        LCD_DrawBitmap(prince_walk_sprite_frame(view->walking_sprite_frame),
+                       PRINCE_WALK_SPRITE_WIDTH,
+                       PRINCE_WALK_SPRITE_HEIGHT,
+                       PRINCE_WALK_SPRITE_ROW_BYTES,
+                       view->walking_sprite_x,
+                       2);
         LCD_Update();
         return;
     }
