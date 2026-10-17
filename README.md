@@ -1,5 +1,7 @@
 # STM32F030 Clock & Ticker
 
+English | [Русский](README.ru.md)
+
 Firmware for an **STM32F030F4Px** microcontroller with a **128×32 SSD1306 OLED**. In the normal clock view it displays the RTC date and time with a smoothly scrolling ticker and blinking time separators, and uses low-power idle between updates.
 
 [▶ Watch the current demo](https://raw.githubusercontent.com/Lendlav/demo-clock-stm32f0/master/Demo.mp4) · [Original demo on YouTube](https://youtu.be/x5GeTt9Zqug)
