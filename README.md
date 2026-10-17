@@ -4,6 +4,8 @@ Firmware for an **STM32F030F4Px** microcontroller with a **128×32 SSD1306 OLED*
 
 [▶ Watch the current demo](https://raw.githubusercontent.com/Lendlav/demo-clock-stm32f0/master/Demo.mp4) · [Original demo on YouTube](https://youtu.be/x5GeTt9Zqug)
 
+[![Demo video preview](Demo-preview.gif)](https://raw.githubusercontent.com/Lendlav/demo-clock-stm32f0/master/Demo.mp4)
+
 The project uses CMake, the STM32 HAL, CMSIS, and FreeRTOS. Its application logic is separated from MCU-specific code so clock formatting does not depend on the hardware or RTOS.
 
 ## What it does
